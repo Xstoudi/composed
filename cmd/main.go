@@ -78,6 +78,7 @@ func run(opts runOptions) (err error) {
 	}
 
 	cfg := config.Get()
+	slog.Debug("loaded config", "config", cfg)
 
 	notifier := notify.New(cfg.NotifyURL)
 	notificationSummary := notify.EventSummary{}
@@ -92,12 +93,12 @@ func run(opts runOptions) (err error) {
 		}
 
 		if !notificationSummary.HasContent() {
-			slog.Info("notification skipped", "reason", "empty summary")
+			slog.Debug("notification skipped", "reason", "empty summary")
 			return
 		}
 
 		if !notifier.Enabled() {
-			slog.Info("notification skipped", "reason", "notify url disabled")
+			slog.Debug("notification skipped", "reason", "notify url disabled")
 			return
 		}
 
@@ -106,12 +107,6 @@ func run(opts runOptions) (err error) {
 			return
 		}
 
-		slog.Info("notification sent",
-			"created", len(notificationSummary.Created),
-			"updated", len(notificationSummary.Updated),
-			"deleted", len(notificationSummary.Deleted),
-			"error", notificationSummary.Error != "",
-		)
 	}()
 
 	if err := lock.Lock(cfg.LockFile); err != nil {
