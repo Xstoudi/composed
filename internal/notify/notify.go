@@ -2,10 +2,11 @@ package notify
 
 import (
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 
-	"github.com/containrrr/shoutrrr"
+	"github.com/nicholas-fedor/shoutrrr"
 )
 
 type EventSummary struct {
@@ -23,23 +24,23 @@ func (s EventSummary) Message() string {
 	lines := make([]string, 0)
 
 	if len(s.Created) > 0 {
-		lines = append(lines, "Created stacks:")
+		lines = appendSectionHeader(lines)
 		for _, name := range sortedUnique(s.Created) {
-			lines = append(lines, fmt.Sprintf("- %s", name))
+			lines = append(lines, fmt.Sprintf("* 🆕 %s (created)", name))
 		}
 	}
 
 	if len(s.Updated) > 0 {
-		lines = append(lines, "Updated stacks:")
+		lines = appendSectionHeader(lines)
 		for _, name := range sortedUnique(s.Updated) {
-			lines = append(lines, fmt.Sprintf("- %s", name))
+			lines = append(lines, fmt.Sprintf("* 🔃 %s (updated)", name))
 		}
 	}
 
 	if len(s.Deleted) > 0 {
-		lines = append(lines, "Deleted stacks:")
+		lines = appendSectionHeader(lines)
 		for _, name := range sortedUnique(s.Deleted) {
-			lines = append(lines, fmt.Sprintf("- %s", name))
+			lines = append(lines, fmt.Sprintf("* 🔽 %s (deleted)", name))
 		}
 	}
 
@@ -47,7 +48,7 @@ func (s EventSummary) Message() string {
 		if len(lines) > 0 {
 			lines = append(lines, "")
 		}
-		lines = append(lines, fmt.Sprintf("Error: %s", s.Error))
+		lines = append(lines, "**Error:**", fmt.Sprintf("* 🚨 %s", s.Error))
 	}
 
 	return strings.Join(lines, "\n")
@@ -90,11 +91,51 @@ func (s *Service) Send(title string, summary EventSummary) error {
 	}
 
 	message := strings.TrimSpace(summary.Message())
-	if title != "" {
-		message = fmt.Sprintf("%s\n\n%s", title, message)
+	notificationURL := withNotificationDefaults(s.url, title, summary.Error != "")
+
+	return s.client.Send(notificationURL, message)
+}
+
+func appendSectionHeader(lines []string) []string {
+	if len(lines) == 0 {
+		return append(lines, "**Service status changes:**")
 	}
 
-	return s.client.Send(s.url, message)
+	return lines
+}
+
+func withNotificationDefaults(rawURL, title string, hasError bool) string {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil || serviceScheme(parsedURL.Scheme) != "ntfy" {
+		return rawURL
+	}
+
+	query := parsedURL.Query()
+	query.Set("markdown", "yes")
+	if title != "" && query.Get("title") == "" {
+		query.Set("title", title)
+	}
+	if query.Get("priority") == "" {
+		query.Set("priority", "urgent")
+	}
+	if query.Get("tags") == "" {
+		tags := "party_face,tada"
+		if hasError {
+			tags = "rotating_light,warning"
+		}
+		query.Set("tags", tags)
+	}
+	parsedURL.RawQuery = query.Encode()
+
+	return parsedURL.String()
+}
+
+func serviceScheme(scheme string) string {
+	if before, _, ok := strings.Cut(scheme, "+"); ok {
+		return before
+	}
+
+	return scheme
 }
 
 func sortedUnique(values []string) []string {
