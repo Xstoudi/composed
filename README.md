@@ -76,6 +76,7 @@ Create a config file in your repo root (example `composed.toml`):
 stacksFolder = "stacks"
 lockFile = "/tmp/composed.lock"
 notifyURL = "ntfy://token@ntfy.example.com/infrastructure"
+sshPrivateKey = "~/.ssh/composed_deploy"
 ```
 
 Run in current directory:
@@ -124,6 +125,22 @@ Supported keys:
 - `stacksFolder` (default: `stacks`)
 - `lockFile` (default: `/tmp/.composed-lock`)
 - `notifyURL` (default: empty / disabled)
+- `sshPrivateKey` (default: empty / use go-git's default auth)
+- `sshUser` (default: `git`)
+- `sshPrivateKeyPassphraseEnv` (default: empty)
+
+For SSH remotes in unattended environments, configure a deploy key instead of
+relying on an already-running SSH agent:
+
+```toml
+sshPrivateKey = "~/.ssh/composed_deploy"
+sshUser = "git"
+sshPrivateKeyPassphraseEnv = "COMPOSED_SSH_KEY_PASSPHRASE"
+```
+
+Relative `sshPrivateKey` paths are resolved from the composed working directory.
+Use `sshPrivateKeyPassphraseEnv` only when the key is encrypted; the passphrase
+is read from the named environment variable.
 
 ## Notifications
 
@@ -172,4 +189,3 @@ gofmt -w ./cmd ./internal
 ## License
 
 This project is licensed under the **GNU Affero General Public License v3.0** — see the [LICENSE](LICENSE) file for details.
-

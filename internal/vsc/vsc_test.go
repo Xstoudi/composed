@@ -194,6 +194,33 @@ func TestFetchReturnsNilWhenNoRemoteChanges(t *testing.T) {
 	}
 }
 
+func TestGitAuthReturnsNilWhenNoSSHPrivateKeyConfigured(t *testing.T) {
+	auth, err := gitAuth(t.TempDir(), &config.Config{})
+	if err != nil {
+		t.Fatalf("gitAuth() error = %v", err)
+	}
+	if auth != nil {
+		t.Fatalf("gitAuth() auth = %#v, want nil", auth)
+	}
+}
+
+func TestGitAuthResolvesRelativeSSHPrivateKeyFromWorkingDir(t *testing.T) {
+	workingDir := t.TempDir()
+
+	_, err := gitAuth(workingDir, &config.Config{
+		SSHPrivateKey: "keys/deploy",
+		SSHUser:       "git",
+	})
+	if err == nil {
+		t.Fatalf("gitAuth() error = nil, want non-nil")
+	}
+
+	want := filepath.Join(workingDir, "keys", "deploy")
+	if !strings.Contains(err.Error(), want) {
+		t.Fatalf("gitAuth() error = %q, want message containing %q", err.Error(), want)
+	}
+}
+
 func TestChangedFileStackName(t *testing.T) {
 	ensureConfigInitialized(t)
 

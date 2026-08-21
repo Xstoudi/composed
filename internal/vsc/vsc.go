@@ -4,12 +4,15 @@ import (
 	"composed/internal/config"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/go-git/go-git/v6/plumbing/object"
+	"github.com/go-git/go-git/v6/plumbing/transport"
+	gitssh "github.com/go-git/go-git/v6/plumbing/transport/ssh"
 )
 
 type ChangeType string
@@ -100,8 +103,14 @@ func Fetch(workingDir string) ([]ChangedFile, error) {
 
 	beforeRef := headRef.Hash()
 
+	auth, err := gitAuth(workingDir, config.Get())
+	if err != nil {
+		return nil, err
+	}
+
 	err = repository.Fetch(&git.FetchOptions{
 		RemoteName: "origin",
+		Auth:       auth,
 	})
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return nil, err
@@ -123,6 +132,7 @@ func Fetch(workingDir string) ([]ChangedFile, error) {
 		RemoteName:    "origin",
 		ReferenceName: headRef.Name(),
 		SingleBranch:  true,
+		Auth:          auth,
 	})
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return nil, fmt.Errorf("pull latest changes: %w", err)
@@ -161,6 +171,74 @@ func openRepository(workingDir string) (*git.Repository, error) {
 	}
 
 	return repository, nil
+}
+
+func gitAuth(workingDir string, cfg *config.Config) (transport.AuthMethod, error) {
+	if cfg == nil || cfg.SSHPrivateKey == "" {
+		return nil, nil
+	}
+
+	keyPath, err := resolveConfiguredPath(workingDir, cfg.SSHPrivateKey)
+	if err != nil {
+		return nil, fmt.Errorf("resolve ssh private key path: %w", err)
+	}
+
+	passphrase := ""
+	if cfg.SSHPrivateKeyPassphraseEnv != "" {
+		passphrase = os.Getenv(cfg.SSHPrivateKeyPassphraseEnv)
+	}
+
+	sshUser := cfg.SSHUser
+	if sshUser == "" {
+		sshUser = "git"
+	}
+
+	auth, err := gitssh.NewPublicKeysFromFile(sshUser, keyPath, passphrase)
+	if err != nil {
+		return nil, fmt.Errorf("load ssh private key %q: %w", keyPath, err)
+	}
+
+	return auth, nil
+}
+
+func resolveConfiguredPath(workingDir, path string) (string, error) {
+	if path == "" {
+		return "", nil
+	}
+
+	if path == "~" {
+		home, err := userHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return home, nil
+	}
+
+	if strings.HasPrefix(path, "~/") {
+		home, err := userHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(home, strings.TrimPrefix(path, "~/")), nil
+	}
+
+	if filepath.IsAbs(path) {
+		return path, nil
+	}
+
+	return filepath.Join(workingDir, path), nil
+}
+
+func userHomeDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	if home == "" {
+		return "", fmt.Errorf("user home directory not found")
+	}
+
+	return home, nil
 }
 
 func changedFilesBetween(beforeCommit, afterCommit *object.Commit) ([]ChangedFile, error) {

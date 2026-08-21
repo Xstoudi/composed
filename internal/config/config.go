@@ -12,10 +12,13 @@ import (
 )
 
 type Config struct {
-	StacksFolder string
-	LockFile     string
-	NotifyURL    string
-	ComposeFiles []string
+	StacksFolder               string
+	LockFile                   string
+	NotifyURL                  string
+	SSHPrivateKey              string
+	SSHPrivateKeyPassphraseEnv string
+	SSHUser                    string
+	ComposeFiles               []string
 }
 
 func (c *Config) IsProjectFile(path string) bool {
@@ -42,10 +45,13 @@ func (c *Config) IsComposeFile(path string) bool {
 }
 
 type partialConfig struct {
-	StacksFolder string `toml:"stacksFolder" yaml:"stacksFolder"`
-	LockFile     string `toml:"lockFile" yaml:"lockFile"`
-	NotifyURL    string `toml:"notifyURL" yaml:"notifyURL"`
-	ComposeFiles string `toml:"composeFiles" yaml:"composeFiles"`
+	StacksFolder               string `toml:"stacksFolder" yaml:"stacksFolder"`
+	LockFile                   string `toml:"lockFile" yaml:"lockFile"`
+	NotifyURL                  string `toml:"notifyURL" yaml:"notifyURL"`
+	SSHPrivateKey              string `toml:"sshPrivateKey" yaml:"sshPrivateKey"`
+	SSHPrivateKeyPassphraseEnv string `toml:"sshPrivateKeyPassphraseEnv" yaml:"sshPrivateKeyPassphraseEnv"`
+	SSHUser                    string `toml:"sshUser" yaml:"sshUser"`
+	ComposeFiles               string `toml:"composeFiles" yaml:"composeFiles"`
 }
 
 var (
@@ -114,6 +120,15 @@ func loadConfig(workingDir string) (*Config, error) {
 		if partial.NotifyURL != "" {
 			cfg.NotifyURL = partial.NotifyURL
 		}
+		if partial.SSHPrivateKey != "" {
+			cfg.SSHPrivateKey = partial.SSHPrivateKey
+		}
+		if partial.SSHPrivateKeyPassphraseEnv != "" {
+			cfg.SSHPrivateKeyPassphraseEnv = partial.SSHPrivateKeyPassphraseEnv
+		}
+		if partial.SSHUser != "" {
+			cfg.SSHUser = partial.SSHUser
+		}
 	}
 	return &cfg, nil
 }
@@ -123,6 +138,7 @@ func defaultConfig() Config {
 		StacksFolder: "stacks",
 		LockFile:     "/tmp/.composed-lock",
 		NotifyURL:    "",
+		SSHUser:      "git",
 		ComposeFiles: []string{
 			"docker-compose.yml",
 			"docker-compose.yaml",
