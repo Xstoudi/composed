@@ -83,6 +83,7 @@ func run(opts runOptions) (err error) {
 	notificationSummary := notify.EventSummary{}
 	defer func() {
 		if opts.dryRun {
+			slog.Info("notification skipped", "reason", "dry-run")
 			return
 		}
 
@@ -90,9 +91,27 @@ func run(opts runOptions) (err error) {
 			notificationSummary.Error = err.Error()
 		}
 
+		if !notificationSummary.HasContent() {
+			slog.Info("notification skipped", "reason", "empty summary")
+			return
+		}
+
+		if !notifier.Enabled() {
+			slog.Info("notification skipped", "reason", "notify url disabled")
+			return
+		}
+
 		if sendErr := notifier.Send("Composed update", notificationSummary); sendErr != nil {
 			slog.Warn("failed to send notification", "error", sendErr)
+			return
 		}
+
+		slog.Info("notification sent",
+			"created", len(notificationSummary.Created),
+			"updated", len(notificationSummary.Updated),
+			"deleted", len(notificationSummary.Deleted),
+			"error", notificationSummary.Error != "",
+		)
 	}()
 
 	if err := lock.Lock(cfg.LockFile); err != nil {
