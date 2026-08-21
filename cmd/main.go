@@ -27,7 +27,7 @@ type runOptions struct {
 func main() {
 	opts, err := parseArgs(os.Args[1:])
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
 
@@ -71,7 +71,7 @@ func run(opts runOptions) (err error) {
 	if err != nil {
 		return fmt.Errorf("resolve working dir: %w", err)
 	}
-	slog.Info("resolved working directory", "working_dir", workingDir)
+	slog.Debug("resolved working directory", "working_dir", workingDir)
 
 	if err := config.Init(workingDir); err != nil {
 		return fmt.Errorf("init config: %w", err)
@@ -84,7 +84,7 @@ func run(opts runOptions) (err error) {
 	notificationSummary := notify.EventSummary{}
 	defer func() {
 		if opts.dryRun {
-			slog.Info("notification skipped", "reason", "dry-run")
+			slog.Debug("notification skipped", "reason", "dry-run")
 			return
 		}
 
@@ -107,6 +107,13 @@ func run(opts runOptions) (err error) {
 			return
 		}
 
+		slog.Info("notification sent",
+			"created", len(notificationSummary.Created),
+			"updated", len(notificationSummary.Updated),
+			"deleted", len(notificationSummary.Deleted),
+			"error", notificationSummary.Error != "",
+		)
+
 	}()
 
 	if err := lock.Lock(cfg.LockFile); err != nil {
@@ -121,7 +128,7 @@ func run(opts runOptions) (err error) {
 			slog.Warn("failed to release lock", "error", err)
 		}
 	}()
-	slog.Info("lock acquired", "lock_file", cfg.LockFile)
+	slog.Debug("lock acquired", "lock_file", cfg.LockFile)
 
 	files, err := vsc.Fetch(workingDir)
 	if err != nil {

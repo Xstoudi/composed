@@ -51,6 +51,9 @@ func TestLoadConfigReturnsDefaultsWhenNoFileExists(t *testing.T) {
 	if cfg.StacksFolder != "stacks" {
 		t.Fatalf("StacksFolder = %q, want default", cfg.StacksFolder)
 	}
+	if cfg.ConfigFile != "" {
+		t.Fatalf("ConfigFile = %q, want empty", cfg.ConfigFile)
+	}
 	if cfg.LockFile != "/tmp/.composed-lock" {
 		t.Fatalf("LockFile = %q, want default", cfg.LockFile)
 	}
@@ -80,7 +83,8 @@ sshPrivateKey = "~/.ssh/composed_deploy"
 sshPrivateKeyPassphraseEnv = "COMPOSED_SSH_KEY_PASSPHRASE"
 sshUser = "deploy"
 `
-	if err := os.WriteFile(filepath.Join(dir, "composed.toml"), []byte(content), 0o600); err != nil {
+	configFile := filepath.Join(dir, "composed.toml")
+	if err := os.WriteFile(configFile, []byte(content), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
@@ -91,6 +95,9 @@ sshUser = "deploy"
 
 	if cfg.StacksFolder != "examples" {
 		t.Fatalf("StacksFolder = %q, want default", cfg.StacksFolder)
+	}
+	if cfg.ConfigFile != configFile {
+		t.Fatalf("ConfigFile = %q, want %q", cfg.ConfigFile, configFile)
 	}
 	if cfg.LockFile != "/var/run/composed.lock" {
 		t.Fatalf("LockFile = %q, want %q", cfg.LockFile, "/var/run/composed.lock")
@@ -147,6 +154,69 @@ sshUser: "deployer"
 	}
 	if cfg.SSHUser != "deployer" {
 		t.Fatalf("SSHUser = %q, want %q", cfg.SSHUser, "deployer")
+	}
+}
+
+func TestLoadConfigAcceptsNotifyUrlAlias(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	content := `notifyUrl = "ntfy://token@ntfy.example/alias"
+`
+	if err := os.WriteFile(filepath.Join(dir, "composed.toml"), []byte(content), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	cfg, err := loadConfig(dir)
+	if err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+
+	if cfg.NotifyURL != "ntfy://token@ntfy.example/alias" {
+		t.Fatalf("NotifyURL = %q, want %q", cfg.NotifyURL, "ntfy://token@ntfy.example/alias")
+	}
+}
+
+func TestLoadConfigAcceptsCapitalizedNotifyUrlAlias(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	content := `NotifyUrl = "ntfy://token@ntfy.example/capitalized-alias"
+`
+	if err := os.WriteFile(filepath.Join(dir, "composed.toml"), []byte(content), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	cfg, err := loadConfig(dir)
+	if err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+
+	if cfg.NotifyURL != "ntfy://token@ntfy.example/capitalized-alias" {
+		t.Fatalf("NotifyURL = %q, want %q", cfg.NotifyURL, "ntfy://token@ntfy.example/capitalized-alias")
+	}
+}
+
+func TestLoadConfigAcceptsNotifyUrlYAMLAlias(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	content := `notifyUrl: "ntfy://token@ntfy.example/yaml-alias"
+`
+	if err := os.WriteFile(filepath.Join(dir, "composed.yaml"), []byte(content), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	cfg, err := loadConfig(dir)
+	if err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+
+	if cfg.NotifyURL != "ntfy://token@ntfy.example/yaml-alias" {
+		t.Fatalf("NotifyURL = %q, want %q", cfg.NotifyURL, "ntfy://token@ntfy.example/yaml-alias")
 	}
 }
 

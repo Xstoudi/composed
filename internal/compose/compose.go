@@ -16,7 +16,7 @@ import (
 
 func Synchronize(workingDir string, stacks []*stack.Stack) error {
 	stacksToDown, stacksToUp := partitionStacks(stacks)
-	slog.Info("compose synchronize plan",
+	slog.Debug("compose synchronize plan",
 		"stacks_total", len(stacks),
 		"stacks_down", len(stacksToDown),
 		"stacks_up", len(stacksToUp),
@@ -35,7 +35,7 @@ func Synchronize(workingDir string, stacks []*stack.Stack) error {
 
 func down(workingDir string, stacks []*stack.Stack) error {
 	if len(stacks) == 0 {
-		slog.Info("compose down skipped", "reason", "no stacks")
+		slog.Debug("compose down skipped", "reason", "no stacks")
 		return nil
 	}
 	slog.Info("compose down start", "stack_count", len(stacks), "stacks", stackNames(stacks))
@@ -58,7 +58,7 @@ func down(workingDir string, stacks []*stack.Stack) error {
 	}
 
 	for _, stack := range stacks {
-		slog.Info("compose down stack", "stack", stack.Name)
+		slog.Debug("compose down stack", "stack", stack.Name)
 		project, err := service.LoadProject(ctx, api.ProjectLoadOptions{
 			WorkingDir: filepath.Join(workingDir, config.Get().StacksFolder, stack.Name),
 		})
@@ -81,7 +81,7 @@ func down(workingDir string, stacks []*stack.Stack) error {
 
 func up(workingDir string, stacks []*stack.Stack) error {
 	if len(stacks) == 0 {
-		slog.Info("compose up skipped", "reason", "no stacks")
+		slog.Debug("compose up skipped", "reason", "no stacks")
 		return nil
 	}
 	slog.Info("compose up start", "stack_count", len(stacks), "stacks", stackNames(stacks))
@@ -104,7 +104,7 @@ func up(workingDir string, stacks []*stack.Stack) error {
 	}
 
 	for _, stack := range stacks {
-		slog.Info("compose up stack", "stack", stack.Name)
+		slog.Debug("compose up stack", "stack", stack.Name)
 		project, err := service.LoadProject(ctx, api.ProjectLoadOptions{
 			WorkingDir: filepath.Join(workingDir, config.Get().StacksFolder, stack.Name),
 		})

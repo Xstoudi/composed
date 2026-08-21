@@ -12,6 +12,7 @@ import (
 )
 
 type Config struct {
+	ConfigFile                 string
 	StacksFolder               string
 	LockFile                   string
 	NotifyURL                  string
@@ -93,6 +94,8 @@ func loadConfig(workingDir string) (*Config, error) {
 	}
 
 	if found != "" {
+		cfg.ConfigFile = found
+
 		data, err := os.ReadFile(found)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read config file: %w", err)
