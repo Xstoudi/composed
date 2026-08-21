@@ -112,6 +112,10 @@ func up(workingDir string, stacks []*stack.Stack) error {
 			return fmt.Errorf("failed to load compose project: %w", err)
 		}
 
+		err = service.Pull(ctx, project, api.PullOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to pull stack %q: %w", stack.Name, err)
+		}
 		err = service.Up(ctx, project, api.UpOptions{
 			Create: api.CreateOptions{
 				Build: &api.BuildOptions{
