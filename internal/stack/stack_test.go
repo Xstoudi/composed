@@ -62,6 +62,9 @@ func TestNewStackAndStateTransitions(t *testing.T) {
 	if stack.ShouldDown() {
 		t.Fatalf("new stack ShouldDown() = true, want false")
 	}
+	if !stack.ShouldPull() {
+		t.Fatalf("new stack ShouldPull() = false, want true")
+	}
 
 	stack.Up()
 
@@ -71,6 +74,9 @@ func TestNewStackAndStateTransitions(t *testing.T) {
 	if stack.ShouldDown() {
 		t.Fatalf("after Up(), ShouldDown() = true, want false")
 	}
+	if stack.ShouldPull() {
+		t.Fatalf("after Up(), ShouldPull() = true, want false")
+	}
 
 	stack.Down()
 
@@ -79,6 +85,9 @@ func TestNewStackAndStateTransitions(t *testing.T) {
 	}
 	if !stack.ShouldDown() {
 		t.Fatalf("after Down(), ShouldDown() = false, want true")
+	}
+	if stack.ShouldPull() {
+		t.Fatalf("after Down(), ShouldPull() = true, want false")
 	}
 
 	stack.Up()

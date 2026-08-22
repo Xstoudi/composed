@@ -13,7 +13,7 @@ type State string
 const (
 	StateShouldUp   State = "up"
 	StateShouldDown State = "down"
-	StateNothing    State = "nothing"
+	StateShouldPull State = "pull"
 )
 
 type Stack struct {
@@ -24,7 +24,7 @@ type Stack struct {
 func NewStack(name string) *Stack {
 	return &Stack{
 		Name:  name,
-		state: StateNothing,
+		state: StateShouldPull,
 	}
 }
 
@@ -49,6 +49,10 @@ func (stack *Stack) ShouldUp() bool {
 
 func (stack *Stack) ShouldDown() bool {
 	return stack.state == StateShouldDown
+}
+
+func (stack *Stack) ShouldPull() bool {
+	return stack.state == StateShouldPull
 }
 
 type StackWork struct {

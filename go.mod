@@ -3,9 +3,11 @@ module composed
 go 1.26
 
 require (
+	github.com/compose-spec/compose-go/v2 v2.10.1
 	github.com/docker/cli v29.2.1+incompatible
 	github.com/docker/compose/v5 v5.1.0
 	github.com/go-git/go-git/v6 v6.0.0-20260313081548-799bb393a8ed
+	github.com/moby/moby/client v0.2.2
 	github.com/nicholas-fedor/shoutrrr v0.17.1
 	github.com/pelletier/go-toml v1.9.5
 	gopkg.in/yaml.v2 v2.4.0
@@ -20,7 +22,6 @@ require (
 	github.com/buger/goterm v1.0.4 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
-	github.com/compose-spec/compose-go/v2 v2.10.1 // indirect
 	github.com/containerd/console v1.0.5 // indirect
 	github.com/containerd/containerd/api v1.10.0 // indirect
 	github.com/containerd/containerd/v2 v2.2.1 // indirect
@@ -79,7 +80,6 @@ require (
 	github.com/moby/go-archive v0.2.0 // indirect
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/moby/moby/api v1.53.0 // indirect
-	github.com/moby/moby/client v0.2.2 // indirect
 	github.com/moby/patternmatcher v0.6.0 // indirect
 	github.com/moby/sys/atomicwriter v0.1.0 // indirect
 	github.com/moby/sys/capability v0.4.0 // indirect
