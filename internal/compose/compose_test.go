@@ -77,6 +77,30 @@ func TestProjectImageRefsReturnsSortedUniqueServiceImages(t *testing.T) {
 	}
 }
 
+func TestDisableServicePullsSetsImageServicesToNever(t *testing.T) {
+	project := &composeTypes.Project{
+		Services: composeTypes.Services{
+			"api": {
+				Name:       "api",
+				Image:      "example/api:latest",
+				PullPolicy: composeTypes.PullPolicyAlways,
+			},
+			"local-build": {
+				Name: "local-build",
+			},
+		},
+	}
+
+	disableServicePulls(project)
+
+	if project.Services["api"].PullPolicy != composeTypes.PullPolicyNever {
+		t.Fatalf("api PullPolicy = %q, want %q", project.Services["api"].PullPolicy, composeTypes.PullPolicyNever)
+	}
+	if project.Services["local-build"].PullPolicy != "" {
+		t.Fatalf("local-build PullPolicy = %q, want empty", project.Services["local-build"].PullPolicy)
+	}
+}
+
 func TestImageSnapshotChanged(t *testing.T) {
 	before := map[string]string{
 		"example/api:latest":    "sha256:old",

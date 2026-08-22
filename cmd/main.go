@@ -118,7 +118,8 @@ func run(opts runOptions) (err error) {
 
 	if err := lock.Lock(cfg.LockFile); err != nil {
 		if errors.Is(err, lock.ErrAlreadyLocked) {
-			return fmt.Errorf("already running")
+			slog.Info("composed run skipped", "reason", "already running")
+			return nil
 		}
 		return fmt.Errorf("failed to acquire lock: %w", err)
 	}

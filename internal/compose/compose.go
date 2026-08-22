@@ -41,12 +41,16 @@ func Synchronize(workingDir string, stacks []*stack.Stack) error {
 		return fmt.Errorf("failed to down stacks: %w", err)
 	}
 
-	if err := pullUpdatedImages(runtime, workingDir, stacksToPull); err != nil {
+	stacksWithUpdatedImages, err := pullUpdatedImages(runtime, workingDir, stacksToPull)
+	if err != nil {
 		return fmt.Errorf("failed to pull stack images: %w", err)
 	}
 
-	_, stacksToUp, _ = partitionStacks(stacks)
-	if err := up(runtime, workingDir, stacksToUp); err != nil {
+	if err := up(runtime, workingDir, stacksToUp, true); err != nil {
+		return fmt.Errorf("failed to up stacks: %w", err)
+	}
+
+	if err := up(runtime, workingDir, stacksWithUpdatedImages, false); err != nil {
 		return fmt.Errorf("failed to up stacks: %w", err)
 	}
 
@@ -105,12 +109,12 @@ func down(runtime *runtime, workingDir string, stacks []*stack.Stack) error {
 	return nil
 }
 
-func up(runtime *runtime, workingDir string, stacks []*stack.Stack) error {
+func up(runtime *runtime, workingDir string, stacks []*stack.Stack, pullBeforeUp bool) error {
 	if len(stacks) == 0 {
 		slog.Debug("compose up skipped", "reason", "no stacks")
 		return nil
 	}
-	slog.Info("compose up start", "stack_count", len(stacks), "stacks", stackNames(stacks))
+	slog.Info("compose up start", "stack_count", len(stacks), "stacks", stackNames(stacks), "pull_before_up", pullBeforeUp)
 
 	for _, stack := range stacks {
 		slog.Debug("compose up stack", "stack", stack.Name)
@@ -121,9 +125,13 @@ func up(runtime *runtime, workingDir string, stacks []*stack.Stack) error {
 			return fmt.Errorf("failed to load compose project: %w", err)
 		}
 
-		err = runtime.service.Pull(runtime.ctx, project, api.PullOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to pull stack %q: %w", stack.Name, err)
+		if pullBeforeUp {
+			err = runtime.service.Pull(runtime.ctx, project, api.PullOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to pull stack %q: %w", stack.Name, err)
+			}
+		} else {
+			disableServicePulls(project)
 		}
 		err = runtime.service.Up(runtime.ctx, project, api.UpOptions{
 			Create: api.CreateOptions{
@@ -142,12 +150,13 @@ func up(runtime *runtime, workingDir string, stacks []*stack.Stack) error {
 	return nil
 }
 
-func pullUpdatedImages(runtime *runtime, workingDir string, stacks []*stack.Stack) error {
+func pullUpdatedImages(runtime *runtime, workingDir string, stacks []*stack.Stack) ([]*stack.Stack, error) {
 	if len(stacks) == 0 {
 		slog.Debug("compose pull skipped", "reason", "no stacks")
-		return nil
+		return nil, nil
 	}
 	slog.Info("compose pull start", "stack_count", len(stacks), "stacks", stackNames(stacks))
+	stacksToUp := make([]*stack.Stack, 0)
 
 	for _, stack := range stacks {
 		slog.Debug("compose pull stack", "stack", stack.Name)
@@ -155,7 +164,7 @@ func pullUpdatedImages(runtime *runtime, workingDir string, stacks []*stack.Stac
 			WorkingDir: filepath.Join(workingDir, config.Get().StacksFolder, stack.Name),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to load compose project: %w", err)
+			return nil, fmt.Errorf("failed to load compose project: %w", err)
 		}
 
 		imageRefs := projectImageRefs(project)
@@ -166,21 +175,24 @@ func pullUpdatedImages(runtime *runtime, workingDir string, stacks []*stack.Stac
 
 		before, err := inspectImages(runtime.ctx, runtime.dockerClient, imageRefs)
 		if err != nil {
-			return fmt.Errorf("failed to inspect images before pull for stack %q: %w", stack.Name, err)
+			return nil, fmt.Errorf("failed to inspect images before pull for stack %q: %w", stack.Name, err)
 		}
 
-		err = runtime.service.Pull(runtime.ctx, project, api.PullOptions{})
+		err = runtime.service.Pull(runtime.ctx, project, api.PullOptions{
+			IgnoreFailures: true,
+		})
 		if err != nil {
-			return fmt.Errorf("failed to pull stack %q: %w", stack.Name, err)
+			slog.Warn("compose pull stack failed during image check", "stack", stack.Name, "error", err)
 		}
 
 		after, err := inspectImages(runtime.ctx, runtime.dockerClient, imageRefs)
 		if err != nil {
-			return fmt.Errorf("failed to inspect images after pull for stack %q: %w", stack.Name, err)
+			return nil, fmt.Errorf("failed to inspect images after pull for stack %q: %w", stack.Name, err)
 		}
 
 		if imageSnapshotChanged(before, after) {
 			stack.ForceUp()
+			stacksToUp = append(stacksToUp, stack)
 			slog.Info("compose pull detected image update", "stack", stack.Name, "images", imageRefs)
 			continue
 		}
@@ -188,7 +200,7 @@ func pullUpdatedImages(runtime *runtime, workingDir string, stacks []*stack.Stac
 		slog.Debug("compose pull no image update", "stack", stack.Name)
 	}
 
-	return nil
+	return stacksToUp, nil
 }
 
 func partitionStacks(stacks []*stack.Stack) ([]*stack.Stack, []*stack.Stack, []*stack.Stack) {
@@ -238,6 +250,16 @@ func projectImageRefs(project *composeTypes.Project) []string {
 
 	sort.Strings(images)
 	return images
+}
+
+func disableServicePulls(project *composeTypes.Project) {
+	for name, service := range project.Services {
+		if service.Image == "" {
+			continue
+		}
+		service.PullPolicy = composeTypes.PullPolicyNever
+		project.Services[name] = service
+	}
 }
 
 func inspectImages(ctx context.Context, dockerClient mobyClient.APIClient, imageRefs []string) (map[string]string, error) {
