@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	composeTypes "github.com/compose-spec/compose-go/v2/types"
 	"github.com/docker/cli/cli/command"
@@ -167,9 +168,10 @@ func pullUpdatedImages(runtime *runtime, workingDir string, stacks []*stack.Stac
 			return nil, fmt.Errorf("failed to load compose project: %w", err)
 		}
 
+		project = latestImageProject(project)
 		imageRefs := projectImageRefs(project)
 		if len(imageRefs) == 0 {
-			slog.Debug("compose pull stack skipped", "stack", stack.Name, "reason", "no service images")
+			slog.Debug("compose pull stack skipped", "stack", stack.Name, "reason", "no latest service images")
 			continue
 		}
 
@@ -250,6 +252,35 @@ func projectImageRefs(project *composeTypes.Project) []string {
 
 	sort.Strings(images)
 	return images
+}
+
+func latestImageProject(project *composeTypes.Project) *composeTypes.Project {
+	filtered := *project
+	filtered.Services = project.Services.Filter(func(service composeTypes.ServiceConfig) bool {
+		return isLatestImageRef(service.Image)
+	})
+	return &filtered
+}
+
+func isLatestImageRef(imageRef string) bool {
+	if imageRef == "" {
+		return false
+	}
+	if strings.Contains(imageRef, "@") {
+		return false
+	}
+
+	lastPart := imageRef
+	if slash := strings.LastIndex(lastPart, "/"); slash >= 0 {
+		lastPart = lastPart[slash+1:]
+	}
+
+	colon := strings.LastIndex(lastPart, ":")
+	if colon < 0 {
+		return true
+	}
+
+	return lastPart[colon+1:] == "latest"
 }
 
 func disableServicePulls(project *composeTypes.Project) {

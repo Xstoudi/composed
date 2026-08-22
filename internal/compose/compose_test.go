@@ -49,7 +49,7 @@ func TestStackNames(t *testing.T) {
 	}
 }
 
-func TestProjectImageRefsReturnsSortedUniqueServiceImages(t *testing.T) {
+func TestLatestImageProjectKeepsOnlyLatestServiceImages(t *testing.T) {
 	project := &composeTypes.Project{
 		Services: composeTypes.Services{
 			"api": {
@@ -58,11 +58,19 @@ func TestProjectImageRefsReturnsSortedUniqueServiceImages(t *testing.T) {
 			},
 			"worker": {
 				Name:  "worker",
-				Image: "example/worker:latest",
+				Image: "example/worker:1.2.3",
 			},
 			"api-copy": {
 				Name:  "api-copy",
 				Image: "example/api:latest",
+			},
+			"implicit-latest": {
+				Name:  "implicit-latest",
+				Image: "example/implicit-latest",
+			},
+			"pinned": {
+				Name:  "pinned",
+				Image: "example/pinned:latest@sha256:abc123",
 			},
 			"local-build": {
 				Name: "local-build",
@@ -70,10 +78,30 @@ func TestProjectImageRefsReturnsSortedUniqueServiceImages(t *testing.T) {
 		},
 	}
 
-	got := projectImageRefs(project)
-	want := []string{"example/api:latest", "example/worker:latest"}
+	got := projectImageRefs(latestImageProject(project))
+	want := []string{"example/api:latest", "example/implicit-latest"}
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("projectImageRefs() = %#v, want %#v", got, want)
+		t.Fatalf("projectImageRefs(latestImageProject()) = %#v, want %#v", got, want)
+	}
+}
+
+func TestIsLatestImageRef(t *testing.T) {
+	cases := map[string]bool{
+		"":                                       false,
+		"nginx":                                  true,
+		"nginx:latest":                           true,
+		"nginx:1.27":                             false,
+		"registry.example.com:5000/nginx":        true,
+		"registry.example.com:5000/nginx:latest": true,
+		"registry.example.com:5000/nginx:1.27":   false,
+		"nginx@sha256:abc123":                    false,
+		"nginx:latest@sha256:abc123":             false,
+	}
+
+	for imageRef, want := range cases {
+		if got := isLatestImageRef(imageRef); got != want {
+			t.Fatalf("isLatestImageRef(%q) = %t, want %t", imageRef, got, want)
+		}
 	}
 }
 
